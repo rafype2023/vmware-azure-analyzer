@@ -9,6 +9,21 @@ export interface AzureConfiguration {
   osDiskType: 'Standard_LRS' | 'StandardSSD_LRS' | 'Premium_LRS';
   tags: Record<string, string>;
   status: 'Pending' | 'Complete';
+  maintenanceWindowIds?: {
+    resourceGroup?: string;
+    vnet?: string;
+    subnet?: string;
+    nsg?: string;
+  };
+}
+
+export interface MaintenanceWindow {
+  id: string;
+  label: string;
+  resourceGroups: string[];
+  vnets: string[];
+  subnets: string[];
+  nsgs: string[];
 }
 
 export interface Server {

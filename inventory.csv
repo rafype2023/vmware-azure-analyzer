@@ -1,0 +1,4 @@
+Server Name,OS,Cores,Memory (GB),Storage (GB),IP Address
+web-01,Windows Server 2019,4,16,100,192.168.1.10
+db-01,Ubuntu 20.04,8,32,500,192.168.1.11
+app-01,Red Hat Enterprise Linux 8,2,8,50,192.168.1.12

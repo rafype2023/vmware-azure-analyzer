@@ -1,7 +1,7 @@
 ServerName,OS,Cores,MemoryGB,StorageGB
-Web-Server-01,Windows Server 2019,4,16,100
+B2B UAT,Windows Server 2019,4,16,100
 DB-Server-Prod,Red Hat Linux 8,8,32,500
-App-Server-01,Ubuntu 20.04,2,8,80
-File-Share-01,Windows Server 2016,2,4,2000
-Dev-Test-Box,Ubuntu 22.04,1,2,50
+HP CMDB,Ubuntu 20.04,2,8,80
+FBA01016,Windows Server 2016,2,4,2000
+Appro,Ubuntu 22.04,1,2,50
 Legacy-App-09,Windows Server 2008 R2,4,8,150

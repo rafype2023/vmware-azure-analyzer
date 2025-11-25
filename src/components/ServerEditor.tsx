@@ -1,5 +1,5 @@
 import React, { useState, useEffect } from 'react';
-import { Server, AzureConfiguration } from '@/lib/types';
+import { Server, AzureConfiguration, MaintenanceWindow } from '@/lib/types';
 import { Save, ArrowRight, X, Plus } from 'lucide-react';
 
 interface ServerEditorProps {
@@ -7,22 +7,24 @@ interface ServerEditorProps {
     onSave: (serverId: string, config: AzureConfiguration) => void;
     onCancel: () => void;
     isLast: boolean;
+    maintenanceWindows: MaintenanceWindow[];
 }
 
 const DEFAULT_CONFIG: AzureConfiguration = {
-    resourceGroup: 'rg-migration-001',
+    resourceGroup: '',
     region: 'eastus2',
-    vnetName: 'vnet-prod-001',
-    subnetName: 'snet-app',
-    nsgName: 'nsg-default',
+    vnetName: '',
+    subnetName: '',
+    nsgName: '',
     publicIp: false,
     vmSize: 'Standard_D2s_v5',
     osDiskType: 'StandardSSD_LRS',
     tags: { 'Environment': 'Production', 'CostCenter': 'IT' },
-    status: 'Complete'
+    status: 'Complete',
+    maintenanceWindowIds: {}
 };
 
-export default function ServerEditor({ server, onSave, onCancel, isLast }: ServerEditorProps) {
+export default function ServerEditor({ server, onSave, onCancel, isLast, maintenanceWindows }: ServerEditorProps) {
     const [config, setConfig] = useState<AzureConfiguration>(
         server.azureConfig || { ...DEFAULT_CONFIG, vmSize: recommendVmSize(server) }
     );
@@ -35,8 +37,44 @@ export default function ServerEditor({ server, onSave, onCancel, isLast }: Serve
         setConfig(server.azureConfig || { ...DEFAULT_CONFIG, vmSize: recommendVmSize(server) });
     }, [server]);
 
-    const handleChange = (field: keyof AzureConfiguration, value: string | boolean) => {
+    const handleChange = (field: keyof AzureConfiguration, value: any) => {
         setConfig(prev => ({ ...prev, [field]: value }));
+    };
+
+    const handleResourceChange = (field: 'resourceGroup' | 'vnetName' | 'subnetName' | 'nsgName', value: string) => {
+        // Find which window this value belongs to (if any)
+        // This is a bit tricky if multiple windows have the same value, but we'll take the first match
+        let windowId = undefined;
+
+        // Map field name to MaintenanceWindow property
+        const categoryMap: Record<string, keyof MaintenanceWindow> = {
+            'resourceGroup': 'resourceGroups',
+            'vnetName': 'vnets',
+            'subnetName': 'subnets',
+            'nsgName': 'nsgs'
+        };
+
+        const category = categoryMap[field];
+        if (category) {
+            for (const w of maintenanceWindows) {
+                // @ts-ignore - dynamic access
+                if (w[category]?.includes(value)) {
+                    windowId = w.id;
+                    break;
+                }
+            }
+        }
+
+        setConfig(prev => ({
+            ...prev,
+            [field]: value,
+            maintenanceWindowIds: {
+                ...prev.maintenanceWindowIds,
+                [field === 'resourceGroup' ? 'resourceGroup' :
+                    field === 'vnetName' ? 'vnet' :
+                        field === 'subnetName' ? 'subnet' : 'nsg']: windowId
+            }
+        }));
     };
 
     const addTag = () => {
@@ -61,6 +99,30 @@ export default function ServerEditor({ server, onSave, onCancel, isLast }: Serve
         onSave(server.id, { ...config, status: 'Complete' });
     };
 
+    // Helper to render options from all windows
+    const renderOptions = (category: 'resourceGroups' | 'vnets' | 'subnets' | 'nsgs') => {
+        const options: React.ReactNode[] = [];
+        options.push(<option key="default" value="">Select...</option>);
+
+        maintenanceWindows.forEach(w => {
+            // @ts-ignore
+            const items = w[category] as string[];
+            if (items && items.length > 0) {
+                options.push(
+                    <optgroup key={w.id} label={w.label}>
+                        {items.map(item => (
+                            <option key={`${w.id}-${item}`} value={item}>
+                                {item}
+                            </option>
+                        ))}
+                    </optgroup>
+                );
+            }
+        });
+
+        return options;
+    };
+
     return (
         <div className="fixed inset-0 bg-black bg-opacity-50 flex items-center justify-center z-50 p-4">
             <div className="bg-white rounded-xl shadow-xl w-full max-w-4xl max-h-[90vh] overflow-y-auto">
@@ -82,13 +144,14 @@ export default function ServerEditor({ server, onSave, onCancel, isLast }: Serve
                             <h3 className="text-lg font-semibold text-gray-800 border-b pb-2">Identity & Location</h3>
                             <div>
                                 <label className="block text-sm font-medium text-gray-700">Resource Group</label>
-                                <input
-                                    type="text"
+                                <select
                                     required
                                     value={config.resourceGroup}
-                                    onChange={(e) => handleChange('resourceGroup', e.target.value)}
+                                    onChange={(e) => handleResourceChange('resourceGroup', e.target.value)}
                                     className="mt-1 block w-full rounded-md border-gray-300 shadow-sm focus:border-blue-500 focus:ring-blue-500 border p-2"
-                                />
+                                >
+                                    {renderOptions('resourceGroups')}
+                                </select>
                             </div>
                             <div>
                                 <label className="block text-sm font-medium text-gray-700">Region</label>
@@ -138,33 +201,36 @@ export default function ServerEditor({ server, onSave, onCancel, isLast }: Serve
                             <h3 className="text-lg font-semibold text-gray-800 border-b pb-2">Network</h3>
                             <div>
                                 <label className="block text-sm font-medium text-gray-700">Virtual Network</label>
-                                <input
-                                    type="text"
+                                <select
                                     required
                                     value={config.vnetName}
-                                    onChange={(e) => handleChange('vnetName', e.target.value)}
+                                    onChange={(e) => handleResourceChange('vnetName', e.target.value)}
                                     className="mt-1 block w-full rounded-md border-gray-300 shadow-sm focus:border-blue-500 focus:ring-blue-500 border p-2"
-                                />
+                                >
+                                    {renderOptions('vnets')}
+                                </select>
                             </div>
                             <div>
                                 <label className="block text-sm font-medium text-gray-700">Subnet</label>
-                                <input
-                                    type="text"
+                                <select
                                     required
                                     value={config.subnetName}
-                                    onChange={(e) => handleChange('subnetName', e.target.value)}
+                                    onChange={(e) => handleResourceChange('subnetName', e.target.value)}
                                     className="mt-1 block w-full rounded-md border-gray-300 shadow-sm focus:border-blue-500 focus:ring-blue-500 border p-2"
-                                />
+                                >
+                                    {renderOptions('subnets')}
+                                </select>
                             </div>
                             <div>
                                 <label className="block text-sm font-medium text-gray-700">Network Security Group</label>
-                                <input
-                                    type="text"
+                                <select
                                     required
                                     value={config.nsgName}
-                                    onChange={(e) => handleChange('nsgName', e.target.value)}
+                                    onChange={(e) => handleResourceChange('nsgName', e.target.value)}
                                     className="mt-1 block w-full rounded-md border-gray-300 shadow-sm focus:border-blue-500 focus:ring-blue-500 border p-2"
-                                />
+                                >
+                                    {renderOptions('nsgs')}
+                                </select>
                             </div>
                             <div className="flex items-center mt-4">
                                 <input

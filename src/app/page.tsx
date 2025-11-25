@@ -5,22 +5,42 @@ import FileUploader from '@/components/FileUploader';
 import DashboardStats from '@/components/DashboardStats';
 import ServerTable from '@/components/ServerTable';
 import ServerEditor from '@/components/ServerEditor';
-import { Server, AnalysisResult, AzureConfiguration } from '@/lib/types';
-import { Cloud, Download } from 'lucide-react';
+import MaintenanceWindowManager from '@/components/MaintenanceWindowManager';
+import { Server, AnalysisResult, AzureConfiguration, MaintenanceWindow } from '@/lib/types';
+import { Cloud, Download, Calendar } from 'lucide-react';
 
 export default function Home() {
   const [servers, setServers] = useState<Server[]>([]);
   const [editingServerId, setEditingServerId] = useState<string | null>(null);
-  const [stats, setStats] = useState<AnalysisResult>({
-    totalServers: 0,
-    totalCores: 0,
-    totalMemoryGB: 0,
-    totalStorageTB: 0,
-    estimatedMonthlyCost: 0,
-    completionPercentage: 0,
-  });
+  const [maintenanceWindows, setMaintenanceWindows] = useState<MaintenanceWindow[]>([]);
+  const [isWindowManagerOpen, setIsWindowManagerOpen] = useState(false);
 
-  const handleFileUpload = (content: string) => {
+  // Load initial data
+  useEffect(() => {
+    const loadData = async () => {
+      try {
+        const [serversRes, windowsRes] = await Promise.all([
+          fetch('/api/servers'),
+          fetch('/api/maintenance')
+        ]);
+
+        if (serversRes.ok) {
+          const loadedServers = await serversRes.json();
+          setServers(loadedServers);
+        }
+
+        if (windowsRes.ok) {
+          const loadedWindows = await windowsRes.json();
+          setMaintenanceWindows(loadedWindows);
+        }
+      } catch (error) {
+        console.error('Failed to load data:', error);
+      }
+    };
+    loadData();
+  }, []);
+
+  const handleFileUpload = async (content: string) => {
     // Basic CSV parsing logic
     const lines = content.split('\n');
     const parsedServers: Server[] = [];
@@ -35,160 +55,155 @@ export default function Home() {
       const parts = line.split(',');
       if (parts.length >= 3) {
         // Assuming format: Name, OS, Cores, Memory, Storage
-        // Adjust indices based on actual CSV format or make it smarter later
         parsedServers.push({
-          id: `srv-${i}`,
-          name: parts[0] || `Server ${i}`,
-          os: parts[1] || 'Unknown',
-          cores: parseInt(parts[2]) || 2,
-          memoryGB: parseInt(parts[3]) || 4,
-          storageGB: parseInt(parts[4]) || 100,
+          id: crypto.randomUUID(),
+          name: parts[0]?.trim() || `Server ${i}`,
+          os: parts[1]?.trim() || 'Unknown',
+          cores: parseInt(parts[2]?.trim()) || 2,
+          memoryGB: parseInt(parts[3]?.trim()) || 4,
+          storageGB: parseInt(parts[4]?.trim()) || 100,
+          ip: parts[5]?.trim() || '',
+          azureConfig: undefined
         });
       }
     }
 
-    setServers(parsedServers);
+    // Merge uploaded servers with existing ones
+    // If server exists (by hostname), keep existing config but update hardware specs if needed
+    const mergedServers = [...servers];
+
+    for (const uploaded of parsedServers) {
+      const existingIndex = mergedServers.findIndex(s => s.name === uploaded.name);
+      if (existingIndex >= 0) {
+        // Keep existing config, update specs
+        mergedServers[existingIndex] = {
+          ...mergedServers[existingIndex],
+          cores: uploaded.cores,
+          memoryGB: uploaded.memoryGB,
+          storageGB: uploaded.storageGB,
+          os: uploaded.os,
+          ip: uploaded.ip
+        };
+      } else {
+        mergedServers.push(uploaded);
+      }
+    }
+
+    setServers(mergedServers);
+
+    // Persist to DB
+    try {
+      await fetch('/api/servers', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify(mergedServers),
+      });
+    } catch (error) {
+      console.error('Failed to save servers:', error);
+    }
   };
 
-  const handleSaveConfig = (serverId: string, config: AzureConfiguration) => {
+  const handleSaveConfig = async (serverId: string, config: AzureConfiguration) => {
     const updatedServers = servers.map(s =>
       s.id === serverId ? { ...s, azureConfig: config } : s
     );
     setServers(updatedServers);
+    setEditingServerId(null);
 
-    // Find next server index
-    const currentIndex = servers.findIndex(s => s.id === serverId);
-    if (currentIndex < servers.length - 1) {
-      setEditingServerId(servers[currentIndex + 1].id);
-    } else {
-      setEditingServerId(null);
+    // Persist to DB
+    try {
+      await fetch('/api/servers', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify(updatedServers),
+      });
+    } catch (error) {
+      console.error('Failed to save configuration:', error);
     }
   };
 
-  const handleViewReport = () => {
-    if (servers.length === 0) return;
-    localStorage.setItem('migration_report_data', JSON.stringify(servers));
-    window.open('/report', '_blank');
+  const handleUpdateWindows = async (windows: MaintenanceWindow[]) => {
+    setMaintenanceWindows(windows);
+
+    // Persist to DB
+    try {
+      await fetch('/api/maintenance', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify(windows),
+      });
+    } catch (error) {
+      console.error('Failed to save maintenance windows:', error);
+    }
   };
-
-  const handleExport = () => {
-    if (servers.length === 0) return;
-
-    const headers = [
-      'ServerName', 'OS', 'Cores', 'MemoryGB', 'StorageGB',
-      'Azure_ResourceGroup', 'Azure_Region', 'Azure_VMSize', 'Azure_VNET', 'Azure_Subnet', 'Azure_NSG', 'Azure_PublicIP', 'Azure_Tags'
-    ].join(',');
-
-    const rows = servers.map(s => {
-      const c = s.azureConfig;
-      const tags = c ? Object.entries(c.tags).map(([k, v]) => `${k}=${v}`).join(';') : '';
-      return [
-        s.name, s.os, s.cores, s.memoryGB, s.storageGB,
-        c?.resourceGroup || '', c?.region || '', c?.vmSize || '', c?.vnetName || '', c?.subnetName || '', c?.nsgName || '', c?.publicIp ? 'Yes' : 'No', tags
-      ].join(',');
-    });
-
-    const csvContent = [headers, ...rows].join('\n');
-    const blob = new Blob([csvContent], { type: 'text/csv' });
-    const url = window.URL.createObjectURL(blob);
-    const a = document.createElement('a');
-    a.href = url;
-    a.download = 'azure_migration_plan.csv';
-    a.click();
-  };
-
-  useEffect(() => {
-    // Recalculate stats when servers change
-    const totalCores = servers.reduce((acc, s) => acc + s.cores, 0);
-    const totalMemoryGB = servers.reduce((acc, s) => acc + s.memoryGB, 0);
-    const totalStorageGB = servers.reduce((acc, s) => acc + s.storageGB, 0);
-    const completedCount = servers.filter(s => s.azureConfig?.status === 'Complete').length;
-
-    // Rough cost estimation logic (placeholder)
-    // Assume avg $40/core/month + storage costs
-    const estimatedCost = (totalCores * 40) + (totalStorageGB * 0.1);
-
-    setStats({
-      totalServers: servers.length,
-      totalCores,
-      totalMemoryGB,
-      totalStorageTB: Math.round((totalStorageGB / 1024) * 100) / 100,
-      estimatedMonthlyCost: Math.round(estimatedCost),
-      completionPercentage: servers.length > 0 ? Math.round((completedCount / servers.length) * 100) : 0,
-    });
-  }, [servers]);
 
   const editingServer = servers.find(s => s.id === editingServerId);
 
+  // Calculate stats
+  const stats: AnalysisResult = {
+    totalServers: servers.length,
+    totalCores: servers.reduce((acc, s) => acc + s.cores, 0),
+    totalMemoryGB: servers.reduce((acc, s) => acc + s.memoryGB, 0),
+    totalStorageTB: servers.reduce((acc, s) => acc + s.storageGB, 0) / 1024,
+    estimatedMonthlyCost: servers.reduce((acc, s) => {
+      const baseRate = 0.05; // $ per core hour
+      return acc + (s.cores * baseRate * 730);
+    }, 0),
+    completionPercentage: servers.length > 0 ? Math.round((servers.filter(s => s.azureConfig?.status === 'Complete').length / servers.length) * 100) : 0,
+  };
+
   return (
-    <main className="min-h-screen bg-gray-50 pb-20">
+    <main className="min-h-screen bg-gray-50">
       {/* Header */}
-      <div className="bg-white border-b border-gray-200">
-        <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 py-6">
+      <header className="bg-white shadow-sm">
+        <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 py-4">
           <div className="flex items-center justify-between">
-            <div className="flex items-center space-x-3">
-              <div className="bg-blue-600 p-2 rounded-lg">
-                <Cloud className="w-6 h-6 text-white" />
-              </div>
+            <div className="flex items-center">
+              <Cloud className="h-8 w-8 text-blue-600 mr-3" />
               <h1 className="text-2xl font-bold text-gray-900">VMware to Azure Analyzer</h1>
             </div>
-            <div className="flex items-center space-x-3">
+            <div className="flex space-x-4">
               <button
-                onClick={handleViewReport}
-                disabled={servers.length === 0}
-                className="text-sm text-gray-600 font-medium hover:text-gray-900 flex items-center disabled:opacity-50 disabled:cursor-not-allowed border border-gray-300 px-3 py-2 rounded-md bg-white"
+                onClick={() => setIsWindowManagerOpen(true)}
+                className="inline-flex items-center px-4 py-2 border border-gray-300 shadow-sm text-sm font-medium rounded-md text-gray-700 bg-white hover:bg-gray-50"
               >
-                View PDF Report
+                <Calendar className="h-4 w-4 mr-2" />
+                Manage Maintenance Windows
               </button>
-              <button
-                onClick={handleExport}
-                disabled={servers.length === 0}
-                className="text-sm text-blue-600 font-medium hover:text-blue-800 flex items-center disabled:opacity-50 disabled:cursor-not-allowed"
+              <a
+                href="/report"
+                className="inline-flex items-center px-4 py-2 border border-transparent text-sm font-medium rounded-md text-white bg-blue-600 hover:bg-blue-700"
               >
-                <Download className="w-4 h-4 mr-1" /> Export CSV
-              </button>
+                <Download className="h-4 w-4 mr-2" />
+                Generate Report
+              </a>
             </div>
           </div>
         </div>
-      </div>
+      </header>
 
       <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 py-8">
-        {/* Upload Section */}
         {servers.length === 0 ? (
-          <div className="max-w-2xl mx-auto mt-12">
-            <div className="text-center mb-8">
-              <h2 className="text-3xl font-bold text-gray-900">Start Your Migration Journey</h2>
-              <p className="text-gray-500 mt-2">Upload your server inventory to get instant insights.</p>
-            </div>
-            <FileUploader onFileUpload={handleFileUpload} />
-            <div className="mt-8 text-center">
-              <p className="text-xs text-gray-400">
-                Sample CSV Format: ServerName, OS, Cores, MemoryGB, StorageGB
-              </p>
+          <FileUploader onFileUpload={handleFileUpload} />
+        ) : (
+          <div className="space-y-8">
+            <DashboardStats stats={stats} />
+
+            <div className="bg-white shadow rounded-lg overflow-hidden">
+              <div className="px-4 py-5 sm:px-6 border-b border-gray-200 flex justify-between items-center">
+                <h3 className="text-lg leading-6 font-medium text-gray-900">
+                  Server Inventory
+                </h3>
+                <span className="px-3 py-1 rounded-full text-sm font-medium bg-blue-100 text-blue-800">
+                  {servers.length} Servers
+                </span>
+              </div>
+              <ServerTable
+                servers={servers}
+                onEdit={(s) => setEditingServerId(s.id)}
+              />
             </div>
           </div>
-        ) : (
-          <>
-            <div className="mb-6 flex items-center justify-between">
-              <h2 className="text-lg font-semibold text-gray-700">Migration Progress</h2>
-              <span className="text-sm font-medium text-blue-600">{stats.completionPercentage}% Configured</span>
-            </div>
-            <div className="w-full bg-gray-200 rounded-full h-2.5 mb-8">
-              <div className="bg-blue-600 h-2.5 rounded-full transition-all duration-500" style={{ width: `${stats.completionPercentage}%` }}></div>
-            </div>
-
-            <DashboardStats stats={stats} />
-            <ServerTable servers={servers} onEdit={(s) => setEditingServerId(s.id)} />
-
-            <div className="mt-8 flex justify-end">
-              <button
-                onClick={() => setServers([])}
-                className="text-gray-500 hover:text-gray-700 text-sm underline"
-              >
-                Upload different file
-              </button>
-            </div>
-          </>
         )}
       </div>
 
@@ -198,8 +213,16 @@ export default function Home() {
           onSave={handleSaveConfig}
           onCancel={() => setEditingServerId(null)}
           isLast={servers.indexOf(editingServer) === servers.length - 1}
+          maintenanceWindows={maintenanceWindows}
         />
       )}
+
+      <MaintenanceWindowManager
+        isOpen={isWindowManagerOpen}
+        onClose={() => setIsWindowManagerOpen(false)}
+        windows={maintenanceWindows}
+        onUpdateWindows={handleUpdateWindows}
+      />
     </main>
   );
 }
