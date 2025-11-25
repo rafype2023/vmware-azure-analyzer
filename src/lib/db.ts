@@ -2,6 +2,26 @@ import Database from 'better-sqlite3';
 import { Server, MaintenanceWindow } from './types';
 import path from 'path';
 
+interface DBServerRow {
+    id: string;
+    hostname: string;
+    ip_address: string;
+    os: string;
+    cores: number;
+    memory_gb: number;
+    storage_gb: number;
+    azure_config: string | null;
+}
+
+interface DBMaintenanceWindowRow {
+    id: string;
+    label: string;
+    resource_groups: string;
+    vnets: string;
+    subnets: string;
+    nsgs: string;
+}
+
 const dbPath = process.env.DATABASE_PATH || path.join(process.cwd(), 'analyzer.db');
 const db = new Database(dbPath);
 
@@ -30,7 +50,7 @@ db.exec(`
 
 export function getServers(): Server[] {
     const stmt = db.prepare('SELECT * FROM servers');
-    const rows = stmt.all() as any[];
+    const rows = stmt.all() as DBServerRow[];
     return rows.map((row) => ({
         id: row.id,
         name: row.hostname, // Mapping hostname to name for frontend
@@ -65,7 +85,7 @@ export function upsertServer(server: Server) {
 
 export function getMaintenanceWindows(): MaintenanceWindow[] {
     const stmt = db.prepare('SELECT * FROM maintenance_windows');
-    const rows = stmt.all() as any[];
+    const rows = stmt.all() as DBMaintenanceWindowRow[];
     return rows.map((row) => ({
         id: row.id,
         label: row.label,
