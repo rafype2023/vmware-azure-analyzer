@@ -62,7 +62,7 @@ export default function Home() {
           cores: parseInt(parts[2]?.trim()) || 2,
           memoryGB: parseInt(parts[3]?.trim()) || 4,
           storageGB: parseInt(parts[4]?.trim()) || 100,
-          ip: parts[5]?.trim() || '',
+          ipAddress: parts[5]?.trim() || '',
           azureConfig: undefined
         });
       }
@@ -82,7 +82,7 @@ export default function Home() {
           memoryGB: uploaded.memoryGB,
           storageGB: uploaded.storageGB,
           os: uploaded.os,
-          ip: uploaded.ip
+          ipAddress: uploaded.ipAddress
         };
       } else {
         mergedServers.push(uploaded);
