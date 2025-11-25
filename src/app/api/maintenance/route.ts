@@ -6,7 +6,7 @@ export async function GET() {
     try {
         const windows = getMaintenanceWindows();
         return NextResponse.json(windows);
-    } catch (_error) {
+    } catch {
         return NextResponse.json({ error: 'Failed to fetch maintenance windows' }, { status: 500 });
     }
 }
@@ -16,7 +16,7 @@ export async function POST(request: Request) {
         const windows: MaintenanceWindow[] = await request.json();
         saveMaintenanceWindows(windows);
         return NextResponse.json({ success: true });
-    } catch (_error) {
+    } catch {
         return NextResponse.json({ error: 'Failed to save maintenance windows' }, { status: 500 });
     }
 }

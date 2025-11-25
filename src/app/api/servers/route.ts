@@ -6,7 +6,7 @@ export async function GET() {
     try {
         const servers = getServers();
         return NextResponse.json(servers);
-    } catch (_error) {
+    } catch {
         return NextResponse.json({ error: 'Failed to fetch servers' }, { status: 500 });
     }
 }
@@ -18,7 +18,7 @@ export async function POST(request: Request) {
             upsertServer(server);
         }
         return NextResponse.json({ success: true });
-    } catch (_error) {
+    } catch {
         return NextResponse.json({ error: 'Failed to save servers' }, { status: 500 });
     }
 }
