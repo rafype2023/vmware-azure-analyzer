@@ -37,7 +37,7 @@ export default function ServerEditor({ server, onSave, onCancel, isLast, mainten
         setConfig(server.azureConfig || { ...DEFAULT_CONFIG, vmSize: recommendVmSize(server) });
     }, [server]);
 
-    const handleChange = (field: keyof AzureConfiguration, value: any) => {
+    const handleChange = (field: keyof AzureConfiguration, value: AzureConfiguration[keyof AzureConfiguration]) => {
         setConfig(prev => ({ ...prev, [field]: value }));
     };
 
@@ -57,7 +57,6 @@ export default function ServerEditor({ server, onSave, onCancel, isLast, mainten
         const category = categoryMap[field];
         if (category) {
             for (const w of maintenanceWindows) {
-                // @ts-ignore - dynamic access
                 if (w[category]?.includes(value)) {
                     windowId = w.id;
                     break;
@@ -105,7 +104,6 @@ export default function ServerEditor({ server, onSave, onCancel, isLast, mainten
         options.push(<option key="default" value="">Select...</option>);
 
         maintenanceWindows.forEach(w => {
-            // @ts-ignore
             const items = w[category] as string[];
             if (items && items.length > 0) {
                 options.push(

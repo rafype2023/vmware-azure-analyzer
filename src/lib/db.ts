@@ -30,8 +30,8 @@ db.exec(`
 
 export function getServers(): Server[] {
     const stmt = db.prepare('SELECT * FROM servers');
-    const rows = stmt.all();
-    return rows.map((row: any) => ({
+    const rows = stmt.all() as any[];
+    return rows.map((row) => ({
         id: row.id,
         name: row.hostname, // Mapping hostname to name for frontend
         ip: row.ip_address,
@@ -65,8 +65,8 @@ export function upsertServer(server: Server) {
 
 export function getMaintenanceWindows(): MaintenanceWindow[] {
     const stmt = db.prepare('SELECT * FROM maintenance_windows');
-    const rows = stmt.all();
-    return rows.map((row: any) => ({
+    const rows = stmt.all() as any[];
+    return rows.map((row) => ({
         id: row.id,
         label: row.label,
         resourceGroups: JSON.parse(row.resource_groups || '[]'),
