@@ -122,6 +122,13 @@ export default function Home() {
       // Skip empty rows
       if (!normalizedRow['server name'] && !normalizedRow.name && !normalizedRow.hostname) continue;
 
+      // Filter by "Powered On" status if present
+      // We only want to import servers that are "poweredOn"
+      const poweredOnStatus = normalizedRow['powered on'];
+      if (poweredOnStatus && String(poweredOnStatus).toLowerCase() !== 'poweredon') {
+        continue;
+      }
+
       // Map specific columns from Migration.xlsx
       const name = normalizedRow['server name'] || normalizedRow.name || normalizedRow.hostname || `Server ${i}`;
       const os = normalizedRow['operating system'] || normalizedRow.os || 'Unknown';
