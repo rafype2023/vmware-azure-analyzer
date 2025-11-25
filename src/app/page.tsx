@@ -40,32 +40,114 @@ export default function Home() {
     loadData();
   }, []);
 
-  const handleFileUpload = async (content: string) => {
-    // Basic CSV parsing logic
-    const lines = content.split('\n');
+  const handleFileUpload = async (data: unknown[]) => {
     const parsedServers: Server[] = [];
 
-    // Skip header row if present (simple heuristic)
-    const startIndex = lines[0].toLowerCase().includes('name') ? 1 : 0;
+    // Detect if first row is a title row (e.g. ["Servers"])
+    // If so, headers are likely on the second row
+    // If we have a title row, we need to re-parse the data using the second row as headers
+    // But since we receive already parsed JSON from FileUploader (which uses first row as header by default),
+    // we might need to adjust.
+    // Actually, FileUploader uses `sheet_to_json` which defaults to first row as header.
+    // If the first row is "Servers", `sheet_to_json` might produce keys like "Servers", "__EMPTY", "__EMPTY_1"...
+    // A better approach for FileUploader might be to pass raw sheet or use "header: 1" (array of arrays).
+    // However, to avoid changing FileUploader again, let's try to work with what we have or
+    // simply accept that for this specific file, we might need to be smarter.
 
-    for (let i = startIndex; i < lines.length; i++) {
-      const line = lines[i].trim();
-      if (!line) continue;
+    // WAIT: FileUploader uses `sheet_to_json(worksheet)`. If row 1 is "Servers", then row 2 becomes data.
+    // This is problematic. We should probably update FileUploader to return array of arrays (header: 1)
+    // OR we can try to infer.
 
-      const parts = line.split(',');
-      if (parts.length >= 3) {
-        // Assuming format: Name, OS, Cores, Memory, Storage
-        parsedServers.push({
-          id: crypto.randomUUID(),
-          name: parts[0]?.trim() || `Server ${i}`,
-          os: parts[1]?.trim() || 'Unknown',
-          cores: parseInt(parts[2]?.trim()) || 2,
-          memoryGB: parseInt(parts[3]?.trim()) || 4,
-          storageGB: parseInt(parts[4]?.trim()) || 100,
-          ipAddress: parts[5]?.trim() || '',
-          azureConfig: undefined
+    // Let's assume FileUploader returns array of objects.
+    // If row 1 is "Servers", then the keys of the objects in `data` will be "Servers", "__EMPTY", etc.
+    // And the first item in `data` will be the actual headers? No, `sheet_to_json` treats row 1 as keys.
+    // So `data[0]` would be: { "Servers": "Server Name", "__EMPTY": "Completed...", ... }
+
+    // So if we detect this pattern, we can map the keys from `data[0]` to the values in `data[0]`.
+
+    // Let's refine the logic:
+    // 1. Check if keys look like garbage ("__EMPTY") or title ("Servers").
+    // 2. If so, treat `data[0]` as the mapping source.
+
+    let headers: string[] = [];
+    let rowsToProcess = data;
+
+    const firstRow = data[0] as Record<string, unknown>;
+    const firstRowKeys = Object.keys(firstRow || {});
+
+    // Check if this looks like the "Migration.xlsx" title row situation
+    if (firstRowKeys.includes('Servers') || firstRowKeys.some(k => k.startsWith('__EMPTY'))) {
+      // The values of the first row are likely the real headers
+      // e.g. { "Servers": "Server Name", "__EMPTY": "Completed (Yes/No)", ... }
+      headers = Object.values(firstRow).map(v => String(v));
+      rowsToProcess = data.slice(1); // Skip the header row
+    } else {
+      // Standard CSV/Excel where first row was headers
+      headers = firstRowKeys;
+    }
+
+    for (let i = 0; i < rowsToProcess.length; i++) {
+      const row = rowsToProcess[i] as Record<string, unknown>;
+      // If we re-mapped headers, we need to access row by the original keys (which are the indices if we used header:1, but here they are the garbage keys)
+      // This is getting complicated because `sheet_to_json` without options is rigid.
+
+      // ALTERNATIVE: Just map loosely based on values if we can, or...
+      // Let's look at the `row` object.
+
+      // If we are in the "Title Row" scenario:
+      // `row` has keys: "Servers", "__EMPTY", "__EMPTY_1"...
+      // We need to map these keys to our `headers` array we extracted from `data[0]`.
+
+      const normalizedRow: Record<string, string | undefined> = {};
+
+      if (headers.length > 0 && headers[0] !== firstRowKeys[0]) {
+        // We are using custom headers extracted from data[0]
+        // We need to map the values from `row` to these headers.
+        // The `row` keys match the `firstRow` keys.
+        const originalKeys = Object.keys(firstRow); // ["Servers", "__EMPTY", ...]
+
+        originalKeys.forEach((key, index) => {
+          const header = headers[index]; // "Server Name"
+          if (header) {
+            normalizedRow[header.toLowerCase().trim()] = String(row[key] || '');
+          }
+        });
+      } else {
+        // Standard case
+        Object.keys(row).forEach(key => {
+          normalizedRow[key.toLowerCase().trim()] = String(row[key] || '');
         });
       }
+
+      // Skip empty rows
+      if (!normalizedRow['server name'] && !normalizedRow.name && !normalizedRow.hostname) continue;
+
+      // Map specific columns from Migration.xlsx
+      const name = normalizedRow['server name'] || normalizedRow.name || normalizedRow.hostname || `Server ${i}`;
+      const os = normalizedRow['operating system'] || normalizedRow.os || 'Unknown';
+      const cores = parseInt(normalizedRow["vcpu's"] || normalizedRow.cores || normalizedRow.vcpu || '2') || 2;
+      const memoryGB = parseInt(normalizedRow["vram (gb's)"] || normalizedRow.memory || normalizedRow.ram || '4') || 4;
+
+      // Storage: Handle "Storage Provisioned (MB's)" -> convert to GB
+      let storageGB = 100;
+      if (normalizedRow["storage provisioned (mb's)"]) {
+        storageGB = Math.round(parseInt(normalizedRow["storage provisioned (mb's)"]) / 1024);
+      } else {
+        storageGB = parseInt(normalizedRow.storage || normalizedRow.disk || '100') || 100;
+      }
+
+      const ipAddress = normalizedRow['ip address'] || normalizedRow.ip || normalizedRow.ipaddress || '';
+
+      parsedServers.push({
+        id: crypto.randomUUID(),
+        name,
+        os,
+        cores,
+        memoryGB,
+        storageGB,
+        ipAddress,
+        azureConfig: undefined
+      });
     }
 
     // Merge uploaded servers with existing ones
