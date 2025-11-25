@@ -2,6 +2,8 @@ import { NextResponse } from 'next/server';
 import { getMaintenanceWindows, saveMaintenanceWindows } from '@/lib/db';
 import { MaintenanceWindow } from '@/lib/types';
 
+export const dynamic = 'force-dynamic';
+
 export async function GET() {
     try {
         const windows = getMaintenanceWindows();

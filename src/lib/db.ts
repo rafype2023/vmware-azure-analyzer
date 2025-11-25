@@ -23,32 +23,39 @@ interface DBMaintenanceWindowRow {
 }
 
 const dbPath = process.env.DATABASE_PATH || path.join(process.cwd(), 'analyzer.db');
-const db = new Database(dbPath);
+let dbInstance: Database.Database | null = null;
 
-// Initialize tables
-db.exec(`
-  CREATE TABLE IF NOT EXISTS servers (
-    id TEXT PRIMARY KEY,
-    hostname TEXT,
-    ip_address TEXT,
-    os TEXT,
-    cores INTEGER,
-    memory_gb INTEGER,
-    storage_gb INTEGER,
-    azure_config TEXT
-  );
+function getDb() {
+    if (!dbInstance) {
+        dbInstance = new Database(dbPath);
+        // Initialize tables
+        dbInstance.exec(`
+          CREATE TABLE IF NOT EXISTS servers (
+            id TEXT PRIMARY KEY,
+            hostname TEXT,
+            ip_address TEXT,
+            os TEXT,
+            cores INTEGER,
+            memory_gb INTEGER,
+            storage_gb INTEGER,
+            azure_config TEXT
+          );
 
-  CREATE TABLE IF NOT EXISTS maintenance_windows (
-    id TEXT PRIMARY KEY,
-    label TEXT,
-    resource_groups TEXT,
-    vnets TEXT,
-    subnets TEXT,
-    nsgs TEXT
-  );
-`);
+          CREATE TABLE IF NOT EXISTS maintenance_windows (
+            id TEXT PRIMARY KEY,
+            label TEXT,
+            resource_groups TEXT,
+            vnets TEXT,
+            subnets TEXT,
+            nsgs TEXT
+          );
+        `);
+    }
+    return dbInstance;
+}
 
 export function getServers(): Server[] {
+    const db = getDb();
     const stmt = db.prepare('SELECT * FROM servers');
     const rows = stmt.all() as DBServerRow[];
     return rows.map((row) => ({
@@ -64,6 +71,7 @@ export function getServers(): Server[] {
 }
 
 export function upsertServer(server: Server) {
+    const db = getDb();
     const stmt = db.prepare(`
     INSERT INTO servers (id, hostname, ip_address, os, cores, memory_gb, storage_gb, azure_config)
     VALUES (@id, @name, @ip, @os, @cores, @memoryGB, @storageGB, @azureConfig)
@@ -84,6 +92,7 @@ export function upsertServer(server: Server) {
 }
 
 export function getMaintenanceWindows(): MaintenanceWindow[] {
+    const db = getDb();
     const stmt = db.prepare('SELECT * FROM maintenance_windows');
     const rows = stmt.all() as DBMaintenanceWindowRow[];
     return rows.map((row) => ({
@@ -97,6 +106,7 @@ export function getMaintenanceWindows(): MaintenanceWindow[] {
 }
 
 export function saveMaintenanceWindows(windows: MaintenanceWindow[]) {
+    const db = getDb();
     const deleteStmt = db.prepare('DELETE FROM maintenance_windows');
     const insertStmt = db.prepare(`
     INSERT INTO maintenance_windows (id, label, resource_groups, vnets, subnets, nsgs)

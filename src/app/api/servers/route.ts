@@ -2,6 +2,8 @@ import { NextResponse } from 'next/server';
 import { getServers, upsertServer } from '@/lib/db';
 import { Server } from '@/lib/types';
 
+export const dynamic = 'force-dynamic';
+
 export async function GET() {
     try {
         const servers = getServers();
