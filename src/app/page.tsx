@@ -176,7 +176,13 @@ export default function Home() {
       const name = normalizedRow['server name'] || normalizedRow.name || normalizedRow.hostname || `Server ${i}`;
       const os = normalizedRow['operating system'] || normalizedRow.os || 'Unknown';
       const cores = parseInt(normalizedRow["vcpu's"] || normalizedRow.cores || normalizedRow.vcpu || '2') || 2;
-      const memoryGB = parseInt(normalizedRow["vram (gb's)"] || normalizedRow.memory || normalizedRow.ram || '4') || 4;
+      // VRAM: Handle "vRAM (GB's)" which is actually in MB -> convert to GB
+      let memoryGB = 4;
+      if (normalizedRow["vram (gb's)"]) {
+        memoryGB = Math.round(parseInt(normalizedRow["vram (gb's)"]) / 1024);
+      } else {
+        memoryGB = parseInt(normalizedRow.memory || normalizedRow.ram || '4') || 4;
+      }
 
       // Storage: Handle "Storage Provisioned (MB's)" -> convert to GB
       let storageGB = 100;
@@ -367,15 +373,15 @@ export default function Home() {
                 </h3>
                 <span className="px-3 py-1 rounded-full text-sm font-medium bg-blue-100 text-blue-800">
                   {servers.filter(s =>
-                    (!s.migrationPhase || selectedPhases.includes(s.migrationPhase)) &&
-                    (!s.migrationGroup || selectedGroups.includes(s.migrationGroup))
+                    (s.migrationPhase && selectedPhases.includes(s.migrationPhase)) &&
+                    selectedGroups.includes(s.migrationGroup || 'No Group')
                   ).length} / {servers.length} Servers
                 </span>
               </div>
               <ServerTable
                 servers={servers.filter(s =>
-                  (!s.migrationPhase || selectedPhases.includes(s.migrationPhase)) &&
-                  (!s.migrationGroup || selectedGroups.includes(s.migrationGroup))
+                  (s.migrationPhase && selectedPhases.includes(s.migrationPhase)) &&
+                  selectedGroups.includes(s.migrationGroup || 'No Group')
                 )}
                 onEdit={(s) => setEditingServerId(s.id)}
               />
