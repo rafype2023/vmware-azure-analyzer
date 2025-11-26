@@ -117,6 +117,11 @@ export function upsertServer(server: Server) {
     });
 }
 
+export function clearServers() {
+    const db = getDb();
+    db.exec('DELETE FROM servers');
+}
+
 export function getMaintenanceWindows(): MaintenanceWindow[] {
     const db = getDb();
     const stmt = db.prepare('SELECT * FROM maintenance_windows');

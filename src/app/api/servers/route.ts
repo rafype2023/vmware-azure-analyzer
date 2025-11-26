@@ -1,5 +1,5 @@
 import { NextResponse } from 'next/server';
-import { getServers, upsertServer } from '@/lib/db';
+import { getServers, upsertServer, clearServers } from '@/lib/db';
 import { Server } from '@/lib/types';
 
 export const dynamic = 'force-dynamic';
@@ -22,5 +22,14 @@ export async function POST(request: Request) {
         return NextResponse.json({ success: true });
     } catch {
         return NextResponse.json({ error: 'Failed to save servers' }, { status: 500 });
+    }
+}
+
+export async function DELETE() {
+    try {
+        clearServers();
+        return NextResponse.json({ success: true });
+    } catch {
+        return NextResponse.json({ error: 'Failed to clear servers' }, { status: 500 });
     }
 }

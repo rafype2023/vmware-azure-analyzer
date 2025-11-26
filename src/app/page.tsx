@@ -7,7 +7,7 @@ import ServerTable from '@/components/ServerTable';
 import ServerEditor from '@/components/ServerEditor';
 import MaintenanceWindowManager from '@/components/MaintenanceWindowManager';
 import { Server, AnalysisResult, AzureConfiguration, MaintenanceWindow } from '@/lib/types';
-import { Cloud, Download, Calendar } from 'lucide-react';
+import { Cloud, Download, Calendar, Trash2 } from 'lucide-react';
 
 export default function Home() {
   const [servers, setServers] = useState<Server[]>([]);
@@ -279,6 +279,24 @@ export default function Home() {
     }
   };
 
+  const handleClearData = async () => {
+    if (!confirm('Are you sure you want to clear all data? This cannot be undone.')) {
+      return;
+    }
+
+    try {
+      const res = await fetch('/api/servers', { method: 'DELETE' });
+      if (res.ok) {
+        setServers([]);
+        setEditingServerId(null);
+      } else {
+        console.error('Failed to clear data');
+      }
+    } catch (error) {
+      console.error('Error clearing data:', error);
+    }
+  };
+
   const editingServer = servers.find(s => s.id === editingServerId);
 
   // Calculate stats
@@ -311,6 +329,13 @@ export default function Home() {
               >
                 <Calendar className="h-4 w-4 mr-2" />
                 Manage Maintenance Windows
+              </button>
+              <button
+                onClick={handleClearData}
+                className="inline-flex items-center px-4 py-2 border border-transparent text-sm font-medium rounded-md text-white bg-red-600 hover:bg-red-700"
+              >
+                <Trash2 className="h-4 w-4 mr-2" />
+                Clear Data
               </button>
               <a
                 href="/report"
