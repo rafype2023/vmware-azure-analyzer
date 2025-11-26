@@ -162,9 +162,9 @@ export default function Home() {
       }
 
       // Filter by "Migration Group"
-      // Allow Group 1-6, TBD, or No Group (from empty/space)
+      // Allow Group 1-6, TBD, or No Group (from empty/space/N/A)
       let migrationGroup = normalizedRow['migration group'] ? String(normalizedRow['migration group']).trim() : 'No Group';
-      if (migrationGroup === '') migrationGroup = 'No Group';
+      if (migrationGroup === '' || migrationGroup.toUpperCase() === 'N/A') migrationGroup = 'No Group';
 
       const allowedGroups = ['Group 1', 'Group 2', 'Group 3', 'Group 4', 'Group 5', 'Group 6', 'TBD', 'No Group'];
 
