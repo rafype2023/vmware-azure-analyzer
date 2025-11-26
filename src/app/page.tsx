@@ -44,7 +44,7 @@ export default function Home() {
     'Milestone 1', 'Milestone 2', 'Milestone 3', 'Milestone 4'
   ]);
   const [selectedGroups, setSelectedGroups] = useState<string[]>([
-    'Group 1', 'Group 2', 'Group 3', 'Group 4', 'Group 5', 'Group 6', 'TBD', 'No Group'
+    'Group 1', 'Group 2', 'Group 3', 'Group 4', 'Group 5', 'Group 6', 'TBD', 'No Group', 'New Build', 'Group Obsolete'
   ]);
 
   const togglePhase = (phase: string) => {
@@ -162,26 +162,38 @@ export default function Home() {
       }
 
       // Filter by "Migration Group"
-      // Allow Group 1-6, TBD, or No Group (from empty/space/N/A)
+      // Allow Group 1-6, TBD, No Group, New Build, Group Obsolete
       let migrationGroup = normalizedRow['migration group'] ? String(normalizedRow['migration group']).trim() : 'No Group';
       if (migrationGroup === '' || migrationGroup.toUpperCase() === 'N/A') migrationGroup = 'No Group';
 
-      const allowedGroups = ['Group 1', 'Group 2', 'Group 3', 'Group 4', 'Group 5', 'Group 6', 'TBD', 'No Group'];
+      const allowedGroups = ['Group 1', 'Group 2', 'Group 3', 'Group 4', 'Group 5', 'Group 6', 'TBD', 'No Group', 'New Build', 'Group Obsolete'];
 
       if (!allowedGroups.includes(migrationGroup)) {
-        continue;
+        // If it's not in the allowed list, check if it's just "Obsolete" and map it
+        if (migrationGroup === 'Obsolete') {
+          migrationGroup = 'Group Obsolete';
+        } else {
+          continue;
+        }
       }
 
       // Map specific columns from Migration.xlsx
       const name = normalizedRow['server name'] || normalizedRow.name || normalizedRow.hostname || `Server ${i}`;
       const os = normalizedRow['operating system'] || normalizedRow.os || 'Unknown';
       const cores = parseInt(normalizedRow["vcpu's"] || normalizedRow.cores || normalizedRow.vcpu || '2') || 2;
-      // VRAM: Handle "vRAM (GB's)" which is actually in MB -> convert to GB
-      let memoryGB = 4;
+      // Parse vRAM (GB's) - Column is in MB, convert to GB
+      let memoryGB = 0;
       if (normalizedRow["vram (gb's)"]) {
-        memoryGB = Math.round(parseInt(normalizedRow["vram (gb's)"]) / 1024);
+        const parsed = parseInt(normalizedRow["vram (gb's)"]);
+        if (!isNaN(parsed)) {
+          memoryGB = Math.round(parsed / 1024);
+        }
       } else {
-        memoryGB = parseInt(normalizedRow.memory || normalizedRow.ram || '4') || 4;
+        // Fallback
+        const parsed = parseInt(normalizedRow.memory || normalizedRow.ram || '0');
+        if (!isNaN(parsed)) {
+          memoryGB = parsed;
+        }
       }
 
       // Storage: Handle "Storage Provisioned (MB's)" -> convert to GB
@@ -377,7 +389,7 @@ export default function Home() {
               </div>
               <div className="px-4 py-2 border-t border-gray-100"></div>
               <div className="px-4 py-4 flex flex-wrap gap-4">
-                {['Group 1', 'Group 2', 'Group 3', 'Group 4', 'Group 5', 'Group 6', 'TBD', 'No Group'].map(group => (
+                {['Group 1', 'Group 2', 'Group 3', 'Group 4', 'Group 5', 'Group 6', 'TBD', 'No Group', 'New Build', 'Group Obsolete'].map(group => (
                   <label key={group} className="flex items-center space-x-2 cursor-pointer hover:bg-gray-50 p-2 rounded transition-colors">
                     <input
                       type="checkbox"
