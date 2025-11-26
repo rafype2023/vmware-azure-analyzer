@@ -40,6 +40,18 @@ export default function Home() {
     loadData();
   }, []);
 
+  const [selectedPhases, setSelectedPhases] = useState<string[]>([
+    'Milestone 1', 'Milestone 2', 'Milestone 3', 'Milestone 4'
+  ]);
+
+  const togglePhase = (phase: string) => {
+    setSelectedPhases(prev =>
+      prev.includes(phase)
+        ? prev.filter(p => p !== phase)
+        : [...prev, phase]
+    );
+  };
+
   const handleFileUpload = async (data: unknown[]) => {
     const parsedServers: Server[] = [];
 
@@ -292,14 +304,35 @@ export default function Home() {
             <div className="bg-white shadow rounded-lg overflow-hidden">
               <div className="px-4 py-5 sm:px-6 border-b border-gray-200 flex justify-between items-center">
                 <h3 className="text-lg leading-6 font-medium text-gray-900">
+                  Filter by Phase
+                </h3>
+              </div>
+              <div className="px-4 py-4 flex flex-wrap gap-4">
+                {['Milestone 1', 'Milestone 2', 'Milestone 3', 'Milestone 4'].map(phase => (
+                  <label key={phase} className="flex items-center space-x-2 cursor-pointer hover:bg-gray-50 p-2 rounded transition-colors">
+                    <input
+                      type="checkbox"
+                      checked={selectedPhases.includes(phase)}
+                      onChange={() => togglePhase(phase)}
+                      className="w-4 h-4 text-blue-600 rounded border-gray-300 focus:ring-blue-500"
+                    />
+                    <span className="text-sm font-medium text-gray-700">{phase}</span>
+                  </label>
+                ))}
+              </div>
+            </div>
+
+            <div className="bg-white shadow rounded-lg overflow-hidden">
+              <div className="px-4 py-5 sm:px-6 border-b border-gray-200 flex justify-between items-center">
+                <h3 className="text-lg leading-6 font-medium text-gray-900">
                   Server Inventory
                 </h3>
                 <span className="px-3 py-1 rounded-full text-sm font-medium bg-blue-100 text-blue-800">
-                  {servers.length} Servers
+                  {servers.filter(s => !s.migrationPhase || selectedPhases.includes(s.migrationPhase)).length} / {servers.length} Servers
                 </span>
               </div>
               <ServerTable
-                servers={servers}
+                servers={servers.filter(s => !s.migrationPhase || selectedPhases.includes(s.migrationPhase))}
                 onEdit={(s) => setEditingServerId(s.id)}
               />
             </div>
