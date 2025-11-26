@@ -129,8 +129,8 @@ export default function Home() {
         // The `row` keys match the `firstRow` keys.
         const originalKeys = Object.keys(firstRow); // ["Servers", "__EMPTY", ...]
 
-        originalKeys.forEach((key, index) => {
-          const header = headers[index]; // "Server Name"
+        originalKeys.forEach((key) => {
+          const header = String(firstRow[key]); // "Server Name"
           if (header) {
             normalizedRow[header.toLowerCase().trim()] = String(row[key] || '');
           }
