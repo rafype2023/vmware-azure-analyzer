@@ -329,17 +329,23 @@ export default function Home() {
 
   const editingServer = servers.find(s => s.id === editingServerId);
 
-  // Calculate stats
+  // Filter servers based on current selection
+  const filteredServers = servers.filter(s =>
+    (s.migrationPhase && selectedPhases.includes(s.migrationPhase)) &&
+    selectedGroups.includes(s.migrationGroup || 'No Group')
+  );
+
+  // Calculate stats based on filtered servers
   const stats: AnalysisResult = {
-    totalServers: servers.length,
-    totalCores: servers.reduce((acc, s) => acc + s.cores, 0),
-    totalMemoryGB: servers.reduce((acc, s) => acc + s.memoryGB, 0),
-    totalStorageTB: servers.reduce((acc, s) => acc + s.storageGB, 0) / 1024,
-    estimatedMonthlyCost: servers.reduce((acc, s) => {
+    totalServers: filteredServers.length,
+    totalCores: filteredServers.reduce((acc, s) => acc + s.cores, 0),
+    totalMemoryGB: filteredServers.reduce((acc, s) => acc + s.memoryGB, 0),
+    totalStorageTB: filteredServers.reduce((acc, s) => acc + s.storageGB, 0) / 1024,
+    estimatedMonthlyCost: filteredServers.reduce((acc, s) => {
       const baseRate = 0.05; // $ per core hour
       return acc + (s.cores * baseRate * 730);
     }, 0),
-    completionPercentage: servers.length > 0 ? Math.round((servers.filter(s => s.azureConfig?.status === 'Complete').length / servers.length) * 100) : 0,
+    completionPercentage: filteredServers.length > 0 ? Math.round((filteredServers.filter(s => s.azureConfig?.status === 'Complete').length / filteredServers.length) * 100) : 0,
   };
 
   return (
@@ -427,17 +433,11 @@ export default function Home() {
                   Server Inventory
                 </h3>
                 <span className="px-3 py-1 rounded-full text-sm font-medium bg-blue-100 text-blue-800">
-                  {servers.filter(s =>
-                    (s.migrationPhase && selectedPhases.includes(s.migrationPhase)) &&
-                    selectedGroups.includes(s.migrationGroup || 'No Group')
-                  ).length} / {servers.length} Servers
+                  {filteredServers.length} / {servers.length} Servers
                 </span>
               </div>
               <ServerTable
-                servers={servers.filter(s =>
-                  (s.migrationPhase && selectedPhases.includes(s.migrationPhase)) &&
-                  selectedGroups.includes(s.migrationGroup || 'No Group')
-                )}
+                servers={filteredServers}
                 onEdit={(s) => setEditingServerId(s.id)}
               />
             </div>
