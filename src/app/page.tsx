@@ -1,6 +1,7 @@
 "use client";
 
 import React, { useState, useEffect } from 'react';
+import { useRouter } from 'next/navigation';
 import FileUploader from '@/components/FileUploader';
 import DashboardStats from '@/components/DashboardStats';
 import ServerTable from '@/components/ServerTable';
@@ -10,6 +11,7 @@ import { Server, AnalysisResult, AzureConfiguration, MaintenanceWindow } from '@
 import { Cloud, Download, Calendar, Trash2 } from 'lucide-react';
 
 export default function Home() {
+  const router = useRouter();
   const [servers, setServers] = useState<Server[]>([]);
   const [editingServerId, setEditingServerId] = useState<string | null>(null);
   const [maintenanceWindows, setMaintenanceWindows] = useState<MaintenanceWindow[]>([]);
@@ -309,6 +311,22 @@ export default function Home() {
     }
   };
 
+  const handleGenerateReport = () => {
+    // Filter servers based on current selection
+    const filteredServers = servers.filter(s =>
+      (s.migrationPhase && selectedPhases.includes(s.migrationPhase)) &&
+      selectedGroups.includes(s.migrationGroup || 'No Group')
+    );
+
+    if (filteredServers.length === 0) {
+      alert('No servers match the current filters.');
+      return;
+    }
+
+    localStorage.setItem('migration_report_data', JSON.stringify(filteredServers));
+    router.push('/report');
+  };
+
   const editingServer = servers.find(s => s.id === editingServerId);
 
   // Calculate stats
@@ -349,13 +367,13 @@ export default function Home() {
                 <Trash2 className="h-4 w-4 mr-2" />
                 Clear Data
               </button>
-              <a
-                href="/report"
+              <button
+                onClick={handleGenerateReport}
                 className="inline-flex items-center px-4 py-2 border border-transparent text-sm font-medium rounded-md text-white bg-blue-600 hover:bg-blue-700"
               >
                 <Download className="h-4 w-4 mr-2" />
                 Generate Report
-              </a>
+              </button>
             </div>
           </div>
         </div>
