@@ -129,6 +129,15 @@ export default function Home() {
         continue;
       }
 
+      // Filter by "Migration Phase"
+      // Only allow Milestone 1, Milestone 2, Milestone 3, Milestone 4
+      const migrationPhase = normalizedRow['migration phase'] ? String(normalizedRow['migration phase']).trim() : undefined;
+      const allowedPhases = ['Milestone 1', 'Milestone 2', 'Milestone 3', 'Milestone 4'];
+
+      if (migrationPhase && !allowedPhases.includes(migrationPhase)) {
+        continue;
+      }
+
       // Map specific columns from Migration.xlsx
       const name = normalizedRow['server name'] || normalizedRow.name || normalizedRow.hostname || `Server ${i}`;
       const os = normalizedRow['operating system'] || normalizedRow.os || 'Unknown';
@@ -153,6 +162,7 @@ export default function Home() {
         memoryGB,
         storageGB,
         ipAddress,
+        migrationPhase,
         azureConfig: undefined
       });
     }
@@ -171,7 +181,8 @@ export default function Home() {
           memoryGB: uploaded.memoryGB,
           storageGB: uploaded.storageGB,
           os: uploaded.os,
-          ipAddress: uploaded.ipAddress
+          ipAddress: uploaded.ipAddress,
+          migrationPhase: uploaded.migrationPhase
         };
       } else {
         mergedServers.push(uploaded);

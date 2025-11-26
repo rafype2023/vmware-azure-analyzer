@@ -10,6 +10,7 @@ interface DBServerRow {
     cores: number;
     memory_gb: number;
     storage_gb: number;
+    migration_phase: string;
     azure_config: string | null;
 }
 
@@ -38,6 +39,8 @@ function getDb() {
             cores INTEGER,
             memory_gb INTEGER,
             storage_gb INTEGER,
+            ip_address TEXT,
+            migration_phase TEXT,
             azure_config TEXT
           );
 
@@ -50,6 +53,13 @@ function getDb() {
             nsgs TEXT
           );
         `);
+
+        // Add migration_phase column if it doesn't exist (for existing DBs)
+        try {
+            dbInstance.exec('ALTER TABLE servers ADD COLUMN migration_phase TEXT');
+        } catch {
+            // Column likely already exists, ignore
+        }
     }
     return dbInstance;
 }
@@ -61,7 +71,8 @@ export function getServers(): Server[] {
     return rows.map((row) => ({
         id: row.id,
         name: row.hostname, // Mapping hostname to name for frontend
-        ip: row.ip_address,
+        ipAddress: row.ip_address,
+        migrationPhase: row.migration_phase,
         os: row.os,
         cores: row.cores,
         memoryGB: row.memory_gb,
@@ -73,20 +84,23 @@ export function getServers(): Server[] {
 export function upsertServer(server: Server) {
     const db = getDb();
     const stmt = db.prepare(`
-    INSERT INTO servers (id, hostname, ip_address, os, cores, memory_gb, storage_gb, azure_config)
-    VALUES (@id, @name, @ip, @os, @cores, @memoryGB, @storageGB, @azureConfig)
+    INSERT INTO servers (id, hostname, ip_address, migration_phase, os, cores, memory_gb, storage_gb, azure_config)
+    VALUES (@id, @name, @ipAddress, @migrationPhase, @os, @cores, @memoryGB, @storageGB, @azureConfig)
     ON CONFLICT(id) DO UPDATE SET
-      hostname = @name,
-      ip_address = @ip,
-      os = @os,
-      cores = @cores,
-      memory_gb = @memoryGB,
-      storage_gb = @storageGB,
-      azure_config = @azureConfig
-  `);
+        hostname=excluded.hostname,
+        ip_address=excluded.ip_address,
+        migration_phase=excluded.migration_phase,
+        os=excluded.os,
+        cores=excluded.cores,
+        memory_gb=excluded.memory_gb,
+        storage_gb=excluded.storage_gb,
+        azure_config=excluded.azure_config
+    `);
 
     stmt.run({
         ...server,
+        ipAddress: server.ipAddress || null,
+        migrationPhase: server.migrationPhase || null,
         azureConfig: server.azureConfig ? JSON.stringify(server.azureConfig) : null
     });
 }

@@ -22,6 +22,7 @@ export default function ServerTable({ servers, onEdit }: ServerTableProps) {
                             <th className="px-6 py-4">OS</th>
                             <th className="px-6 py-4">vCPUs</th>
                             <th className="px-6 py-4">Memory (GB)</th>
+                            <th className="px-6 py-4">Migration Phase</th>
                             <th className="px-6 py-4">Rec. Azure VM</th>
                             <th className="px-6 py-4">Actions</th>
                         </tr>
@@ -46,6 +47,12 @@ export default function ServerTable({ servers, onEdit }: ServerTableProps) {
                                 <td className="px-6 py-4">{server.os}</td>
                                 <td className="px-6 py-4">{server.cores}</td>
                                 <td className="px-6 py-4">{server.memoryGB}</td>
+                                <td className="px-6 py-4 whitespace-nowrap text-sm text-gray-500">
+                                    <span className={`px-2 inline-flex text-xs leading-5 font-semibold rounded-full ${server.migrationPhase ? 'bg-blue-100 text-blue-800' : 'bg-gray-100 text-gray-800'
+                                        }`}>
+                                        {server.migrationPhase || 'N/A'}
+                                    </span>
+                                </td>
                                 <td className="px-6 py-4 text-blue-600 font-medium">
                                     {server.azureConfig?.vmSize || 'Not Configured'}
                                 </td>
