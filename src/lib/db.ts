@@ -11,6 +11,7 @@ interface DBServerRow {
     memory_gb: number;
     storage_gb: number;
     migration_phase: string;
+    migration_group: string;
     azure_config: string | null;
 }
 
@@ -41,6 +42,7 @@ function getDb() {
             storage_gb INTEGER,
             ip_address TEXT,
             migration_phase TEXT,
+            migration_group TEXT,
             azure_config TEXT
           );
 
@@ -60,6 +62,13 @@ function getDb() {
         } catch {
             // Column likely already exists, ignore
         }
+
+        // Add migration_group column if it doesn't exist (for existing DBs)
+        try {
+            dbInstance.exec('ALTER TABLE servers ADD COLUMN migration_group TEXT');
+        } catch {
+            // Column likely already exists, ignore
+        }
     }
     return dbInstance;
 }
@@ -73,6 +82,7 @@ export function getServers(): Server[] {
         name: row.hostname, // Mapping hostname to name for frontend
         ipAddress: row.ip_address,
         migrationPhase: row.migration_phase,
+        migrationGroup: row.migration_group,
         os: row.os,
         cores: row.cores,
         memoryGB: row.memory_gb,
@@ -84,12 +94,13 @@ export function getServers(): Server[] {
 export function upsertServer(server: Server) {
     const db = getDb();
     const stmt = db.prepare(`
-    INSERT INTO servers (id, hostname, ip_address, migration_phase, os, cores, memory_gb, storage_gb, azure_config)
-    VALUES (@id, @name, @ipAddress, @migrationPhase, @os, @cores, @memoryGB, @storageGB, @azureConfig)
+    INSERT INTO servers (id, hostname, ip_address, migration_phase, migration_group, os, cores, memory_gb, storage_gb, azure_config)
+    VALUES (@id, @name, @ipAddress, @migrationPhase, @migrationGroup, @os, @cores, @memoryGB, @storageGB, @azureConfig)
     ON CONFLICT(id) DO UPDATE SET
         hostname=excluded.hostname,
         ip_address=excluded.ip_address,
         migration_phase=excluded.migration_phase,
+        migration_group=excluded.migration_group,
         os=excluded.os,
         cores=excluded.cores,
         memory_gb=excluded.memory_gb,
@@ -101,6 +112,7 @@ export function upsertServer(server: Server) {
         ...server,
         ipAddress: server.ipAddress || null,
         migrationPhase: server.migrationPhase || null,
+        migrationGroup: server.migrationGroup || null,
         azureConfig: server.azureConfig ? JSON.stringify(server.azureConfig) : null
     });
 }

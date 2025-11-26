@@ -43,12 +43,23 @@ export default function Home() {
   const [selectedPhases, setSelectedPhases] = useState<string[]>([
     'Milestone 1', 'Milestone 2', 'Milestone 3', 'Milestone 4'
   ]);
+  const [selectedGroups, setSelectedGroups] = useState<string[]>([
+    'Group 1', 'Group 2', 'Group 3', 'Group 4', 'Group 5', 'Group 6', 'TBD', 'No Group'
+  ]);
 
   const togglePhase = (phase: string) => {
     setSelectedPhases(prev =>
       prev.includes(phase)
         ? prev.filter(p => p !== phase)
         : [...prev, phase]
+    );
+  };
+
+  const toggleGroup = (group: string) => {
+    setSelectedGroups(prev =>
+      prev.includes(group)
+        ? prev.filter(g => g !== group)
+        : [...prev, group]
     );
   };
 
@@ -150,6 +161,17 @@ export default function Home() {
         continue;
       }
 
+      // Filter by "Migration Group"
+      // Allow Group 1-6, TBD, or No Group (from empty/space)
+      let migrationGroup = normalizedRow['migration group'] ? String(normalizedRow['migration group']).trim() : 'No Group';
+      if (migrationGroup === '') migrationGroup = 'No Group';
+
+      const allowedGroups = ['Group 1', 'Group 2', 'Group 3', 'Group 4', 'Group 5', 'Group 6', 'TBD', 'No Group'];
+
+      if (!allowedGroups.includes(migrationGroup)) {
+        continue;
+      }
+
       // Map specific columns from Migration.xlsx
       const name = normalizedRow['server name'] || normalizedRow.name || normalizedRow.hostname || `Server ${i}`;
       const os = normalizedRow['operating system'] || normalizedRow.os || 'Unknown';
@@ -175,6 +197,7 @@ export default function Home() {
         storageGB,
         ipAddress,
         migrationPhase,
+        migrationGroup,
         azureConfig: undefined
       });
     }
@@ -194,7 +217,8 @@ export default function Home() {
           storageGB: uploaded.storageGB,
           os: uploaded.os,
           ipAddress: uploaded.ipAddress,
-          migrationPhase: uploaded.migrationPhase
+          migrationPhase: uploaded.migrationPhase,
+          migrationGroup: uploaded.migrationGroup
         };
       } else {
         mergedServers.push(uploaded);
@@ -320,6 +344,20 @@ export default function Home() {
                   </label>
                 ))}
               </div>
+              <div className="px-4 py-2 border-t border-gray-100"></div>
+              <div className="px-4 py-4 flex flex-wrap gap-4">
+                {['Group 1', 'Group 2', 'Group 3', 'Group 4', 'Group 5', 'Group 6', 'TBD', 'No Group'].map(group => (
+                  <label key={group} className="flex items-center space-x-2 cursor-pointer hover:bg-gray-50 p-2 rounded transition-colors">
+                    <input
+                      type="checkbox"
+                      checked={selectedGroups.includes(group)}
+                      onChange={() => toggleGroup(group)}
+                      className="w-4 h-4 text-green-600 rounded border-gray-300 focus:ring-green-500"
+                    />
+                    <span className="text-sm font-medium text-gray-700">{group}</span>
+                  </label>
+                ))}
+              </div>
             </div>
 
             <div className="bg-white shadow rounded-lg overflow-hidden">
@@ -328,11 +366,17 @@ export default function Home() {
                   Server Inventory
                 </h3>
                 <span className="px-3 py-1 rounded-full text-sm font-medium bg-blue-100 text-blue-800">
-                  {servers.filter(s => !s.migrationPhase || selectedPhases.includes(s.migrationPhase)).length} / {servers.length} Servers
+                  {servers.filter(s =>
+                    (!s.migrationPhase || selectedPhases.includes(s.migrationPhase)) &&
+                    (!s.migrationGroup || selectedGroups.includes(s.migrationGroup))
+                  ).length} / {servers.length} Servers
                 </span>
               </div>
               <ServerTable
-                servers={servers.filter(s => !s.migrationPhase || selectedPhases.includes(s.migrationPhase))}
+                servers={servers.filter(s =>
+                  (!s.migrationPhase || selectedPhases.includes(s.migrationPhase)) &&
+                  (!s.migrationGroup || selectedGroups.includes(s.migrationGroup))
+                )}
                 onEdit={(s) => setEditingServerId(s.id)}
               />
             </div>

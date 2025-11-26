@@ -35,6 +35,7 @@ export interface Server {
   storageGB: number;
   ipAddress?: string;
   migrationPhase?: string;
+  migrationGroup?: string;
   azureConfig?: AzureConfiguration;
 }
 
