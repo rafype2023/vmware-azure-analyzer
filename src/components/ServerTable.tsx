@@ -57,7 +57,7 @@ export default function ServerTable({ servers, onEdit }: ServerTableProps) {
                                 <td className="px-6 py-4 whitespace-nowrap text-sm text-gray-500">
                                     <span className={`px-2 inline-flex text-xs leading-5 font-semibold rounded-full ${server.migrationGroup ? 'bg-green-100 text-green-800' : 'bg-gray-100 text-gray-800'
                                         }`}>
-                                        {server.migrationGroup || 'N/A'}
+                                        {server.migrationGroup || 'No Group'}
                                     </span>
                                 </td>
                                 <td className="px-6 py-4 text-blue-600 font-medium">
